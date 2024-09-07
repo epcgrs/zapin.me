@@ -18,7 +18,7 @@ services:
       context: ./0_backend
       dockerfile: ./Dockerfile
     ports:
-      - 4270:4270
+      - 4269:4269
     env_file:
       - ./0_backend/.env
     volumes:

@@ -166,6 +166,38 @@ const Stage0 = ({
     setAmount(value); 
   };
 
+  async function fetchTitle(url: string) {
+    try {
+      const response = await axios.get(`${NEXT_PUBLIC_BACKEND_URL}/get-url-info?url=${encodeURIComponent(url)}`);
+      const data = await response.data;
+      return data.title;
+    } catch (error) {
+      return 'Title not found';
+    }
+  }
+
+
+  const processText = (e: any) => {
+    const inputText = e.target.value;
+    const urlPattern = /(https?:\/\/[^\s]+)/g;
+    const urls = inputText.match(urlPattern);
+
+    if (urls) {
+      urls.forEach((url: string) => {
+
+        fetchTitle(url).then(title => {
+          const ficon = `https://www.google.com/s2/favicons?sz=64&domain_url=${url}`;
+
+          
+
+        })
+
+      });
+    } 
+    
+    setMessage(e.target.value)
+  };
+
   return (
     <div className="flex flex-col space-y-2 w-full max-w-[700px] rounded-lg">
       <h2 className="text-2xl font-bold text-white mb-2">
@@ -176,7 +208,7 @@ const Stage0 = ({
         <textarea
           placeholder={placeholder}
           value={message}
-          onChange={(e) => setMessage(e.target.value)}
+          onChange={(e) => processText(e)}
           className="w-full text-gray-900 px-4 py-3 rounded-md bg-gray-100 focus:outline-none focus:ring-2 focus:ring-purple-500 transition duration-200 h-32 resize-none"
         />
 

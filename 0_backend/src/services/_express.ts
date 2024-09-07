@@ -6,6 +6,10 @@ import bodyParser from "body-parser";
 import cors from "cors";
 import { Server } from "socket.io";
 import Phoenix from "phoenix-server-js";
+
+import axios from 'axios';
+import { JSDOM } from 'jsdom';
+
 import {
   countInvoices,
   createInvoice,
@@ -158,6 +162,31 @@ const initExpress = async ({ phoenix, db, pool, sk }: Props) => {
 
     app.get("/", (req, res) => {
       res.json({ message: "Hello World!" });
+    });
+
+    app.get("/get-url-info",  async (req, res) => {
+      const url = req.query.url;
+
+      if (!url) {
+        return res.status(400).json({ error: 'Url is required' });
+      }
+
+      if (typeof url !== 'string') {
+        return res.status(400).json({ error: 'Url needs to be a string' });
+      }
+
+      try {
+        const response = await axios.get(url);
+        const dom = new JSDOM(response.data);
+        const title = dom.window.document?.querySelector('title')?.textContent;
+        if (!title) {
+          throw new Error('Title not found');
+        }
+        
+        res.json({ title });
+      } catch (error) {
+        res.status(500).json({ error: 'Error while fetching URL info' });
+      }
     });
 
     app.get("/invoices/count", async (req, res) => {
