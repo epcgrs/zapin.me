@@ -1,4 +1,4 @@
-import React, { useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import {
   MapContainer,
   Marker,
@@ -10,6 +10,9 @@ import { Link, SquareArrowOutUpRight, Zap } from "lucide-react";
 import { icon } from "leaflet";
 import { formatTimeLeft } from "@/Utils/formatTimeLeft";
 import { useCountdown } from "@/Utils/useCountdown";
+import axios from "axios";
+
+const NEXT_PUBLIC_BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL;
 
 const deactivatedIcon = icon({
   iconUrl: "./map-pin-check-inside-deactivated.svg",
@@ -25,6 +28,63 @@ const customIcon = icon({
   popupAnchor: [1, -34],
 });
 
+
+
+async function fetchTitle(url: string) {
+  try {
+    const response = await axios.get(`${NEXT_PUBLIC_BACKEND_URL}/get-url-info?url=${encodeURIComponent(url)}`);
+    const data = await response.data;
+
+    if (data.title.length > 40) {
+      return data.title.substring(0, 37) + '...';
+    }
+
+    return data.title;
+  } catch (error) {
+    return 'Chek this';
+  }
+}
+
+const processText = async (inputText: string) => {
+  const urlPattern = /(https?:\/\/[^\s]+)/g;
+  const parts = inputText.split(urlPattern);
+  const urls = inputText.match(urlPattern);
+
+  if (urls) {
+    const urlComponents = await Promise.all(
+      urls.map(async (url: string, index: number) => {
+        const title = await fetchTitle(url);
+        const favicon = `https://www.google.com/s2/favicons?sz=64&domain_url=${url}`;
+
+        return (
+          <span key={index} className="inline px-2 py-[2px] bg-white rounded-md">
+            <a href={url} target="_blank" rel="noopener noreferrer" className="inline text-black">
+              <img
+                src={favicon}
+                alt="Icon"
+                className="w-[16px] h-[16px] mr-2 inline" 
+              />
+              {title}
+            </a>
+          </span>
+        );
+      })
+    );
+    
+    const mergedComponents = parts.map((part, index) => {
+      if (index % 2 === 1) {
+        return urlComponents[Math.floor(index / 2)];
+      }
+      return <span className="inline" key={index}>{part}</span>;
+    });
+
+    return mergedComponents;
+  } else {
+    return (<span>{inputText}</span>);
+  }
+};
+
+
 const MarkerPopup = ({
   marker,
   onRemove,
@@ -34,6 +94,17 @@ const MarkerPopup = ({
 }) => {
   const timeLeft = useCountdown(marker.deactivate_at, onRemove);
   const [copied, setCopied] = React.useState(false);
+  const [message, setMessage] = useState<React.JSX.Element | React.JSX.Element[]>(<></>);
+
+  useEffect(() => {
+    async function fetchData() {
+      const result = await processText(marker.message);
+      if (result !== undefined) {
+        setMessage(result);
+      }
+    }
+    fetchData();
+  }, [marker.message]);
 
   return (
     <Popup>
@@ -72,7 +143,7 @@ const MarkerPopup = ({
         </div>
 
         <h2 className="text-[18px] font-medium text-white mb-0 break-words">
-          {marker.message}
+          {message}
         </h2>
 
         <p className="text-xs text-gray-300 text-right">
@@ -90,6 +161,17 @@ const MarkerPopup = ({
 
 const MarketPopupDeactivated = ({ marker }: { marker: any }) => {
   const [copied, setCopied] = React.useState(false);
+  const [message, setMessage] = useState<React.JSX.Element | React.JSX.Element[]>(<></>);
+
+  useEffect(() => {
+    async function fetchData() {
+      const result = await processText(marker.message);
+      if (result !== undefined) {
+        setMessage(result);
+      }
+    }
+    fetchData();
+  }, [marker.message]);
 
   return (
     <Popup>
@@ -128,7 +210,7 @@ const MarketPopupDeactivated = ({ marker }: { marker: any }) => {
         </div>
 
         <h2 className="text-[18px] font-medium text-white mb-0 break-words">
-          {marker.message}
+          { message }
         </h2>
 
         <p className="text-xs text-gray-300 text-right">Deactivated</p>
