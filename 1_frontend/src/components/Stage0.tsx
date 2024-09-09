@@ -1,6 +1,6 @@
 import axios from "axios";
 import { Eraser, File, Send, Smile } from "lucide-react";
-import { useState, useEffect } from "react";
+import { useState, useEffect, ChangeEvent } from "react";
 import { z } from "zod";
 import { CreatePinMap } from "./MapComponent";
 import EmojiPicker from "emoji-picker-react";
@@ -52,6 +52,7 @@ const Stage0 = ({
   const [typingSpeed, setTypingSpeed] = useState<number>(150);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [selectedTime, setSelectedTime] = useState<number>(1440);
+  const [textPreview, setTextPreview] = useState<React.ReactNode>("");
 
   const placeholders = [
     "What's your pin-worthy message?",
@@ -166,37 +167,73 @@ const Stage0 = ({
     setAmount(value); 
   };
 
+
+  const handleTextChange = (e: ChangeEvent<HTMLTextAreaElement>) => {
+    const inputText = e.target.value;
+    setMessage(inputText);
+
+    // debounce type for proccess 1 second
+    const timer = setTimeout(() => {
+      processText(inputText);
+    }, 1000);
+
+    return () => clearTimeout(timer);
+    
+  };
+
   async function fetchTitle(url: string) {
     try {
       const response = await axios.get(`${NEXT_PUBLIC_BACKEND_URL}/get-url-info?url=${encodeURIComponent(url)}`);
       const data = await response.data;
-      return data.title;
+
+      if (data.title.length > 60) {
+        return data.title.substring(0, 57) + '...';
+      }
     } catch (error) {
-      return 'Title not found';
+      return 'Check';
     }
   }
 
-
-  const processText = (e: any) => {
-    const inputText = e.target.value;
+  const processText = async (inputText: string) => {
     const urlPattern = /(https?:\/\/[^\s]+)/g;
+    const parts = inputText.split(urlPattern); // Divide o texto por URLs
     const urls = inputText.match(urlPattern);
-
+  
     if (urls) {
-      urls.forEach((url: string) => {
-
-        fetchTitle(url).then(title => {
-          const ficon = `https://www.google.com/s2/favicons?sz=64&domain_url=${url}`;
-
-          
-
+      const urlComponents = await Promise.all(
+        urls.map(async (url: string, index: number) => {
+          const title = await fetchTitle(url);
+          const favicon = `https://www.google.com/s2/favicons?sz=64&domain_url=${url}`;
+  
+          return (
+            <span key={index} style={{ display: "inline", alignItems: "center" }}>
+              <img
+                src={favicon}
+                alt="Icon"
+                style={{ width: "16px", height: "16px", marginRight: "8px" }}
+              />
+              <a href={url} target="_blank" rel="noopener noreferrer">
+                {title}
+              </a>
+            </span>
+          );
         })
-
+      );
+  
+      // Substitui as partes de texto originais, trocando as URLs pelos componentes criados
+      const mergedComponents = parts.map((part, index) => {
+        if (index % 2 === 1) { // URLs são os itens ímpares (após o split)
+          return urlComponents[Math.floor(index / 2)];
+        }
+        return <span key={index}>{part}</span>; // Textos normais continuam sendo apenas spans
       });
-    } 
-    
-    setMessage(e.target.value)
+  
+      setTextPreview(mergedComponents);
+    } else {
+      setTextPreview(<span>{inputText}</span>); // Apenas mostra o texto simples se não houver URLs
+    }
   };
+
 
   return (
     <div className="flex flex-col space-y-2 w-full max-w-[700px] rounded-lg">
@@ -208,10 +245,13 @@ const Stage0 = ({
         <textarea
           placeholder={placeholder}
           value={message}
-          onChange={(e) => processText(e)}
+          onChange={(e) => handleTextChange(e)}
           className="w-full text-gray-900 px-4 py-3 rounded-md bg-gray-100 focus:outline-none focus:ring-2 focus:ring-purple-500 transition duration-200 h-32 resize-none"
         />
-
+        <h3 className="mt-5 mb-5">Como seu Pin aparecerá: </h3>
+        <div className="w-full my-5 text-gray-900 px-4 py-3 rounded-md bg-gray-100 focus:outline-none focus:ring-2 focus:ring-purple-500 transition duration-200 h-32 resize-none">
+          {textPreview}
+        </div>
         <button
           type="button"
           onClick={() => {
